@@ -28,8 +28,20 @@ def generate_synthetic_data(num_samples=1000):
         "Osteochondral Allograft", "Custom Tumor Prosthesis"
     ]
 
-    # Procedures
-    procedures = [
+    # Procedures mapped to implants
+    implant_procedure_map = {
+        "Unicompartmental Knee Replacement": ["Partial Knee Arthroplasty", "Total Knee Arthroplasty"],
+        "Total Knee Replacement": ["Total Knee Arthroplasty"],
+        "Distal Femoral Replacement": ["ORIF (Open Reduction Internal Fixation)", "Bone Grafting"],
+        "Tibial Plateau Prosthesis": ["ORIF (Open Reduction Internal Fixation)", "Bone Grafting"],
+        "Hinged Knee Replacement": ["Two-Stage Revision with Spacer", "Total Knee Arthroplasty"],
+        "Patellofemoral Joint Replacement": ["Joint Resurfacing", "Patellar Resurfacing"],
+        "Osteochondral Allograft": ["Autologous Chondrocyte Implantation", "Arthroscopic Meniscal Repair"],
+        "Custom Tumor Prosthesis": ["Bone Grafting", "Wide Tumor Excision"]
+    }
+
+    # Procedures not directly tied to implants (for other scenarios)
+    other_procedures = [
         "ORIF (Open Reduction Internal Fixation)", "Arthroscopic Meniscal Repair",
         "Autologous Chondrocyte Implantation", "Two-Stage Revision with Spacer",
         "Joint Resurfacing", "Total Knee Arthroplasty", "Partial Knee Arthroplasty",
@@ -53,25 +65,28 @@ def generate_synthetic_data(num_samples=1000):
         # Injury/condition scenario
         scenario = random.choice(scenarios)
 
-        # Choose implant and procedure based on scenario
+        # Choose implant and corresponding procedure based on scenario
         if scenario in ["Distal Femoral Fracture", "Proximal Tibial Fracture", "Patellar Fracture"]:
             implant = random.choice(["Distal Femoral Replacement", "Tibial Plateau Prosthesis"])
-            procedure = random.choice(["ORIF (Open Reduction Internal Fixation)", "Bone Grafting"])
         elif scenario in ["Osteoarthritis", "Rheumatoid Arthritis", "Post-Traumatic Arthritis"]:
             implant = random.choice(["Unicompartmental Knee Replacement", "Total Knee Replacement"])
-            procedure = random.choice(["Total Knee Arthroplasty", "Partial Knee Arthroplasty"])
         elif scenario in ["Meniscal Damage", "Cartilage Injury"]:
             implant = random.choice(["Osteochondral Allograft", "Unicompartmental Knee Replacement"])
-            procedure = random.choice(["Arthroscopic Meniscal Repair", "Autologous Chondrocyte Implantation"])
         elif scenario in ["Septic Arthritis", "Osteomyelitis"]:
             implant = random.choice(["Total Knee Replacement", "Hinged Knee Replacement"])
-            procedure = "Two-Stage Revision with Spacer"
         elif scenario in ["Primary Bone Tumor", "Metastatic Lesion"]:
             implant = "Custom Tumor Prosthesis"
-            procedure = "Bone Grafting"
+        elif scenario in ["Mechanical Failure", "Patellofemoral Disorder", "Congenital Disorder"]:
+            implant = random.choice(
+                ["Hinged Knee Replacement", "Patellofemoral Joint Replacement", "Total Knee Replacement"])
         else:
             implant = random.choice(implants)
-            procedure = random.choice(procedures)
+
+        # Select procedure based on implant
+        if implant in implant_procedure_map:
+            procedure = random.choice(implant_procedure_map[implant])
+        else:
+            procedure = random.choice(other_procedures)
 
         # Append to data
         data.append({
@@ -98,5 +113,5 @@ def generate_synthetic_data(num_samples=1000):
 synthetic_data = generate_synthetic_data(1000)
 
 # Save dataset to CSV
-synthetic_data.to_csv("../SavedDataset/SyntheticDataSet.csv", index=False)
-print("Synthetic dataset generated and saved as 'SyntheticDataSet.csv'.")
+synthetic_data.to_csv("../SavedDataSet/RevisedDataSet.csv", index=False)
+print("Synthetic dataset generated and saved as 'RevisedDataSet.csv'.")
