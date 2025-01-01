@@ -1,93 +1,66 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, classification_report
+from sklearn.preprocessing import LabelEncoder
 import joblib
 
 # Load the synthetic dataset
-dataset_path = "../SavedDataset/RevisedDataSet.csv"  # Path to the dataset file
-df = pd.read_csv(dataset_path)
-
+data = pd.read_csv("../SavedDataset/OptimizedDataSet.csv")
 
 # Preprocessing
-def preprocess_data(df):
-    # Encode categorical variables
-    label_encoders = {}
-    for col in ["Gender", "Activity Level", "Comorbidities", "Smoking Status",
-                "Alcohol Use", "Deformity", "Bone Quality", "Scenario"]:
-        le = LabelEncoder()
-        df[col] = le.fit_transform(df[col])
-        label_encoders[col] = le
+# Encode categorical features using LabelEncoder
+label_encoder = LabelEncoder()
 
-    # Encode target variables
-    implant_le = LabelEncoder()
-    df["Recommended Implant Encoded"] = implant_le.fit_transform(df["Recommended Implant"])
+# Columns to encode
+categorical_columns = ["Gender", "Activity Level", "Comorbidities", "Smoking Status", "Alcohol Use", "Deformity", "Bone Quality", "Scenario"]
 
-    procedure_le = LabelEncoder()
-    df["Recommended Procedure Encoded"] = procedure_le.fit_transform(df["Recommended Procedure"])
+# Apply LabelEncoder to each categorical column
+for col in categorical_columns:
+    data[col] = label_encoder.fit_transform(data[col])
 
-    # Scale numerical features
-    scaler = StandardScaler()
-    numerical_features = ["Age", "BMI"]
-    df[numerical_features] = scaler.fit_transform(df[numerical_features])
+# Features and target for Implant model
+X = data.drop(columns=["Recommended Implant", "Recommended Procedure"])
+y_implant = data["Recommended Implant"]
 
-    return df, implant_le, procedure_le, scaler
+# Features and target for Procedure model
+y_procedure = data["Recommended Procedure"]
 
-
-# Preprocess the data
-df_processed, implant_le, procedure_le, scaler = preprocess_data(df)
-
-# Features for implant prediction
-feature_cols = ["Age", "Gender", "BMI", "Activity Level", "Comorbidities",
-                "Smoking Status", "Alcohol Use", "Deformity", "Bone Quality", "Scenario"]
-
-X = df_processed[feature_cols]
-y_implant = df_processed["Recommended Implant Encoded"]
-
-# Train-test split for implant prediction
-X_train_implant, X_test_implant, y_train_implant, y_test_implant = train_test_split(
-    X, y_implant, test_size=0.2, random_state=42, stratify=y_implant
+# Split the data into training and testing sets (80/20 split)
+X_train, X_test, y_train_implant, y_test_implant, y_train_procedure, y_test_procedure = train_test_split(
+    X, y_implant, y_procedure, test_size=0.2, random_state=42
 )
 
-# Define and train the implant prediction model
-implant_model = RandomForestClassifier(n_estimators=200, random_state=42)
-implant_model.fit(X_train_implant, y_train_implant)
+# Initialize RandomForestClassifier for both models
+implant_model = RandomForestClassifier(n_estimators=100, random_state=42)
+procedure_model = RandomForestClassifier(n_estimators=100, random_state=42)
 
-# Evaluate implant model
-implant_train_score = implant_model.score(X_train_implant, y_train_implant)
-implant_test_score = implant_model.score(X_test_implant, y_test_implant)
-print(f"Implant Model - Training Accuracy: {implant_train_score:.2f}")
-print(f"Implant Model - Test Accuracy: {implant_test_score:.2f}")
+# Train the Implant model
+implant_model.fit(X_train, y_train_implant)
 
-# Save the implant model and encoders
-joblib.dump(implant_model, "../SavedModels/ImplantModel.pkl")
-joblib.dump(implant_le, "../SavedModels/ImplantLabelEncoders.pkl")
-joblib.dump(scaler, "../SavedModels/ImplantScalar.pkl")
-print("Implant model and encoders saved successfully.")
+# Train the Procedure model
+procedure_model.fit(X_train, y_train_procedure)
 
-# Prepare data for procedure prediction
-# We'll use the entire dataset, adding the encoded implant as a feature
-X_procedure = X.copy()
-X_procedure["Recommended Implant Encoded"] = df_processed["Recommended Implant Encoded"]
+# Predictions on the test set
+implant_predictions = implant_model.predict(X_test)
+procedure_predictions = procedure_model.predict(X_test)
 
-y_procedure = df_processed["Recommended Procedure Encoded"]
+# Evaluate the Implant model
+implant_accuracy = accuracy_score(y_test_implant, implant_predictions)
+implant_report = classification_report(y_test_implant, implant_predictions, zero_division=1)
 
-# Train-test split for procedure prediction
-X_train_proc, X_test_proc, y_train_proc, y_test_proc = train_test_split(
-    X_procedure, y_procedure, test_size=0.2, random_state=42, stratify=y_procedure
-)
+# Evaluate the Procedure model
+procedure_accuracy = accuracy_score(y_test_procedure, procedure_predictions)
+procedure_report = classification_report(y_test_procedure, procedure_predictions, zero_division=1)
 
-# Define and train the procedure prediction model
-procedure_model = RandomForestClassifier(n_estimators=200, random_state=42)
-procedure_model.fit(X_train_proc, y_train_proc)
+# Print evaluation results
+print(f"Implant Model Accuracy: {implant_accuracy:.4f}")
+print(f"Implant Model Classification Report:\n{implant_report}")
+print(f"Procedure Model Accuracy: {procedure_accuracy:.4f}")
+print(f"Procedure Model Classification Report:\n{procedure_report}")
 
-# Evaluate procedure model
-procedure_train_score = procedure_model.score(X_train_proc, y_train_proc)
-procedure_test_score = procedure_model.score(X_test_proc, y_test_proc)
-print(f"Procedure Model - Training Accuracy: {procedure_train_score:.2f}")
-print(f"Procedure Model - Test Accuracy: {procedure_test_score:.2f}")
+# Save the trained models to disk
+joblib.dump(implant_model, "../SavedModels/implant_model.pkl")
+joblib.dump(procedure_model, "../SavedModels/procedure_model.pkl")
 
-# Save the procedure model and encoders
-joblib.dump(procedure_model, "../SavedModels/ProcedureModel.pkl")
-joblib.dump(procedure_le, "../SavedModels/ProcedureLabelEncoder.pkl")
-print("Procedure model and encoders saved successfully.")
+print("Models saved successfully.")
