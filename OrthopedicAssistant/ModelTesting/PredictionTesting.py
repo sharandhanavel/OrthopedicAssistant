@@ -1,90 +1,92 @@
 import pandas as pd
 import joblib
-from sklearn.preprocessing import LabelEncoder
+import logging
 
-# Load the trained models
-implant_model = joblib.load("../SavedModels/implant_model.pkl")
-procedure_model = joblib.load("../SavedModels/procedure_model.pkl")
+# Setup logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Load LabelEncoder to encode inputs
-label_encoder = LabelEncoder()
+# Load trained models and metadata
+logging.info("Loading trained models and metadata...")
+implant_model_data = joblib.load("../SavedModels/implant_model.pkl")
+procedure_model_data = joblib.load("../SavedModels/procedure_model.pkl")
 
-# Predefined list of categories for each input field to ensure correct input encoding
-categories = {
-    "Gender": ["Male", "Female"],
-    "Activity Level": ["Low", "Moderate", "High"],
-    "Comorbidities": ["None", "Diabetes", "Rheumatoid Arthritis", "Osteoporosis", "Multiple"],
-    "Smoking Status": ["Non-smoker", "Former Smoker", "Current Smoker"],
-    "Alcohol Use": ["No", "Occasional", "Regular"],
-    "Deformity": ["None", "Valgus", "Varus", "Rotational"],
-    "Bone Quality": ["Normal", "Osteoporotic", "Severely Compromised"],
-    "Scenario": ["Distal Femoral Fracture", "Proximal Tibial Fracture", "Patellar Fracture", "Osteoarthritis",
-                 "Rheumatoid Arthritis", "Post-Traumatic Arthritis", "Primary Bone Tumor", "Metastatic Lesion",
-                 "Mechanical Failure", "Patellofemoral Disorder", "Congenital Disorder", "Cartilage Injury",
-                 "Ligamentous Injury", "Meniscal Damage"]
-}
+implant_model = implant_model_data["model"]
+procedure_model = procedure_model_data["model"]
+label_encoders = implant_model_data["label_encoders"]
+
+# Feature columns order (must match training)
+feature_columns = ["Age", "Gender", "BMI", "Activity Level", "Comorbidities",
+                   "Smoking Status", "Alcohol Use", "Deformity", "Bone Quality", "Scenario"]
 
 
-# Function to encode inputs based on LabelEncoder and category mapping
-def encode_input(input_value, category_list):
-    if input_value not in category_list:
-        raise ValueError(f"Invalid input: {input_value}. Expected one of: {category_list}")
-    return label_encoder.fit(category_list).transform([input_value])[0]
+def encode_input(column, value):
+    """Encodes categorical values using stored label encoders."""
+    encoder = label_encoders.get(column)
+    if encoder and value in encoder.classes_:
+        return encoder.transform([value])[0]
+    return encoder.transform([encoder.classes_[0]])[0] if encoder else value
 
 
-# Function to simulate the prediction process with predefined input values
-def test_with_predefined_inputs():
-    print("\n--- Knee Implant and Procedure Prediction ---\n")
-
-    # Predefined input values (as an example)
-    age = 65
-    gender = "Female"
-    bmi = 25.3
-    activity_level = "Moderate"
-    comorbidities = "Diabetes"
-    smoking_status = "Non-smoker"
-    alcohol_use = "Regular"
-    deformity = "None"
-    bone_quality = "Normal"
-    scenario = "Mechanical Failure"
-
+def predict_implant_procedure(test_cases, expected_outcomes=None):
+    """Runs predictions for given test cases and compares with expected outcomes."""
+    logging.info("Starting predictions...")
     print(
-        f"Using the following predefined inputs:\nAge: {age}\nGender: {gender}\nBMI: {bmi}\nActivity Level: {activity_level}\n"
-        f"Comorbidities: {comorbidities}\nSmoking Status: {smoking_status}\nAlcohol Use: {alcohol_use}\n"
-        f"Deformity: {deformity}\nBone Quality: {bone_quality}\nScenario: {scenario}")
+        f"{'Scenario':<35} {'Expected Implant':<40} {'Expected Procedure':<40} {'Predicted Implant':<40} {'Predicted Procedure':<40}")
+    print("=" * 200)
 
-    try:
-        # Encode user inputs
+    for idx, test_case in enumerate(test_cases):
+        # Encode categorical features
         encoded_inputs = [
-            age,  # Age is a continuous feature, no need to encode it.
-            encode_input(gender, categories["Gender"]),
-            bmi,  # BMI is continuous, no need to encode it.
-            encode_input(activity_level, categories["Activity Level"]),
-            encode_input(comorbidities, categories["Comorbidities"]),
-            encode_input(smoking_status, categories["Smoking Status"]),
-            encode_input(alcohol_use, categories["Alcohol Use"]),
-            encode_input(deformity, categories["Deformity"]),
-            encode_input(bone_quality, categories["Bone Quality"]),
-            encode_input(scenario, categories["Scenario"])
+            test_case[0],  # Age (numerical)
+            encode_input("Gender", test_case[1]),
+            test_case[2],  # BMI (numerical)
+            encode_input("Activity Level", test_case[3]),
+            encode_input("Comorbidities", test_case[4]),
+            encode_input("Smoking Status", test_case[5]),
+            encode_input("Alcohol Use", test_case[6]),
+            encode_input("Deformity", test_case[7]),
+            encode_input("Bone Quality", test_case[8]),
+            encode_input("Scenario", test_case[9])
         ]
 
-        # Prepare input as a DataFrame for the model
-        input_data = pd.DataFrame([encoded_inputs], columns=["Age", "Gender", "BMI", "Activity Level", "Comorbidities",
-                                                             "Smoking Status", "Alcohol Use", "Deformity",
-                                                             "Bone Quality", "Scenario"])
+        input_df = pd.DataFrame([encoded_inputs], columns=feature_columns)
 
-        # Make predictions for Implant and Procedure
-        implant_prediction = implant_model.predict(input_data)[0]
-        procedure_prediction = procedure_model.predict(input_data)[0]
+        # Predict implant and procedure
+        implant_prediction = implant_model.predict(input_df)[0]
+        procedure_prediction = procedure_model.predict(input_df)[0]
 
-        # Output predictions in a structured format
-        print("\n--- Prediction Results ---")
-        print(f"Recommended Implant: {implant_prediction}")
-        print(f"Recommended Procedure: {procedure_prediction}")
+        # Output results
+        if expected_outcomes:
+            expected_implant, expected_procedure = expected_outcomes[idx]
+            print(
+                f"{test_case[9]:<35} {expected_implant:<40} {expected_procedure:<40} {implant_prediction:<40} {procedure_prediction:<40}")
+        else:
+            print(f"\n--- Prediction Results ---")
+            print(f"Scenario: {test_case[9]}")
+            print(f"Recommended Implant: {implant_prediction}")
+            print(f"Recommended Procedure: {procedure_prediction}")
 
-    except ValueError as e:
-        print(f"Error: {e}")
 
+# Sample Test Cases
+test_cases = [
+    [65, "Female", 25.3, "High", "Diabetes", "Non-smoker", "Regular", "None", "Normal", "Mechanical Failure"],
+    [75, "Male", 28.4, "Moderate", "Osteoporosis", "Former Smoker", "Occasional", "Varus", "Osteoporotic",
+     "Osteoarthritis"],
+    [50, "Female", 32.1, "Low", "Osteoporosis", "Current Smoker", "Occasional", "Valgus", "Normal",
+     "Distal Femoral Fracture"],
+    [68, "Male", 26.5, "High", "Diabetes", "Non-smoker", "Regular", "Rotational", "Osteoporotic",
+     "Post-Traumatic Arthritis"],
+    [82, "Female", 29.8, "Moderate", "Rheumatoid Arthritis", "Former Smoker", "Regular", "None", "Normal",
+     "Osteoarthritis"]
+]
 
-# Call the function to start the prediction process with predefined inputs
-test_with_predefined_inputs()
+expected_outcomes = [
+    ("Hinged Knee Replacement", "Total Knee Arthroplasty"),  # Mechanical Failure
+    ("Total Knee Replacement", "Total Knee Arthroplasty"),  # Osteoarthritis
+    ("Distal Femoral Replacement", "ORIF (Open Reduction Internal Fixation)"),  # Distal Femoral Fracture
+    ("Total Knee Replacement", "Partial Knee Arthroplasty"),  # Post-Traumatic Arthritis
+    ("Total Knee Replacement", "Total Knee Arthroplasty")  # Osteoarthritis
+]
+
+# Run Testing
+predict_implant_procedure(test_cases, expected_outcomes)

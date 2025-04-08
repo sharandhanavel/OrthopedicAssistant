@@ -1,10 +1,9 @@
 import pandas as pd
 import numpy as np
 
-# Seed for reproducibility
 np.random.seed(42)
 
-# Define mappings for clinical decision-making
+# Defining mappings for implants and procedures based on clinical scenarios
 mappings = {
     "implants": {
         "Fractures": ["Distal Femoral Replacement", "Tibial Plateau Prosthesis"],
@@ -26,8 +25,7 @@ mappings = {
 }
 
 
-def generate_synthetic_data(num_samples=1000):
-    # Natural distribution of scenarios (based on common clinical data)
+def generate_synthetic_data(num_samples=10000):
     scenarios = [
         "Distal Femoral Fracture", "Proximal Tibial Fracture", "Patellar Fracture",
         "Osteoarthritis", "Rheumatoid Arthritis", "Post-Traumatic Arthritis",
@@ -36,7 +34,6 @@ def generate_synthetic_data(num_samples=1000):
         "Cartilage Injury", "Ligamentous Injury", "Meniscal Damage"
     ]
 
-    # More balanced distribution (reflecting clinical cases with adjustments)
     scenario_distribution = {
         "Distal Femoral Fracture": 0.08,
         "Proximal Tibial Fracture": 0.08,
@@ -54,15 +51,10 @@ def generate_synthetic_data(num_samples=1000):
         "Meniscal Damage": 0.05
     }
 
-    # Normalize to make sure distribution sums to 1
-    scenario_distribution = np.array(list(scenario_distribution.values()))
-    scenario_distribution = scenario_distribution / scenario_distribution.sum()
-
-    # Generate synthetic patient data
+    scenario_distribution = np.array(list(scenario_distribution.values())) / sum(scenario_distribution.values())
     data = []
 
     for _ in range(num_samples):
-        # Patient characteristics
         age = np.random.randint(15, 85)
         gender = np.random.choice(["Male", "Female"])
         bmi = round(np.random.uniform(18.5, 40.0), 1)
@@ -73,35 +65,29 @@ def generate_synthetic_data(num_samples=1000):
         deformity = np.random.choice(["None", "Valgus", "Varus", "Rotational"])
         bone_quality = np.random.choice(["Normal", "Osteoporotic", "Severely Compromised"])
 
-        # Adjusted scenario selection based on the distribution
         scenario_idx = np.random.choice(range(len(scenarios)), p=scenario_distribution)
         scenario = scenarios[scenario_idx]
 
-        # Implant decision based on scenario with adjustments for balance
         if scenario in ["Distal Femoral Fracture", "Proximal Tibial Fracture", "Patellar Fracture"]:
             implant = mappings["implants"]["Fractures"][0] if "Distal Femoral" in scenario else \
                 mappings["implants"]["Fractures"][1]
         elif scenario in ["Osteoarthritis", "Rheumatoid Arthritis", "Post-Traumatic Arthritis"]:
-            if age > 60 or comorbidities in ["Diabetes", "Rheumatoid Arthritis"]:
-                implant = mappings["implants"]["Arthritis"][1]  # Total Knee Replacement
-            else:
-                implant = mappings["implants"]["Arthritis"][0]  # Unicompartmental Knee Replacement
+            implant = mappings["implants"]["Arthritis"][1] if age > 60 or comorbidities in ["Diabetes",
+                                                                                            "Rheumatoid Arthritis"] else \
+                mappings["implants"]["Arthritis"][0]
         elif scenario in ["Primary Bone Tumor", "Metastatic Lesion"]:
             implant = mappings["implants"]["Tumors"][0]
         elif scenario in ["Mechanical Failure", "Patellofemoral Disorder", "Congenital Disorder"]:
-            if bmi > 30 or smoking_status == "Current Smoker" or alcohol_use == "Regular":
-                implant = mappings["implants"]["Instability"][0]  # Hinged Knee Replacement
-            else:
-                implant = mappings["implants"]["Instability"][1]  # Patellofemoral Joint Replacement
+            implant = mappings["implants"]["Instability"][
+                0] if bmi > 30 or smoking_status == "Current Smoker" or alcohol_use == "Regular" else \
+                mappings["implants"]["Instability"][1]
         elif scenario in ["Cartilage Injury", "Ligamentous Injury", "Meniscal Damage"]:
-            if activity_level == "High" and (smoking_status != "Current Smoker" and alcohol_use != "Regular"):
-                implant = mappings["implants"]["Cartilage/Ligament"][0]  # Osteochondral Allograft
-            else:
-                implant = mappings["implants"]["Cartilage/Ligament"][1]  # Unicompartmental Knee Replacement
+            implant = mappings["implants"]["Cartilage/Ligament"][0] if activity_level == "High" and (
+                    smoking_status != "Current Smoker" and alcohol_use != "Regular") else \
+                mappings["implants"]["Cartilage/Ligament"][1]
         else:
-            implant = "Total Knee Replacement"  # Default choice for other conditions
+            implant = "Total Knee Replacement"
 
-        # Procedure decision based on implant, scenario, and patient features
         if implant == "Distal Femoral Replacement":
             procedure = "Bone Grafting" if age > 60 else "ORIF (Open Reduction Internal Fixation)"
         elif implant == "Tibial Plateau Prosthesis":
@@ -109,22 +95,20 @@ def generate_synthetic_data(num_samples=1000):
         elif implant == "Unicompartmental Knee Replacement":
             procedure = "Partial Knee Arthroplasty" if activity_level == "High" else "General Surgery"
         elif implant == "Total Knee Replacement":
-            if age > 70 or comorbidities in ["Diabetes", "Rheumatoid Arthritis"]:
-                procedure = "Total Knee Arthroplasty"
-            else:
-                procedure = "Partial Knee Arthroplasty"
+            procedure = "Total Knee Arthroplasty" if age > 70 or comorbidities in ["Diabetes",
+                                                                                   "Rheumatoid Arthritis"] else "Partial Knee Arthroplasty"
         elif implant == "Hinged Knee Replacement":
             procedure = "Joint Resurfacing" if deformity in ["Valgus", "Varus"] else "Two-Stage Revision with Spacer"
         elif implant == "Patellofemoral Joint Replacement":
-            procedure = "Patellar Resurfacing" if activity_level == "High" and (smoking_status == "Current Smoker" or alcohol_use == "Regular") else "Joint Resurfacing"
+            procedure = "Patellar Resurfacing" if activity_level == "High" and (
+                    smoking_status == "Current Smoker" or alcohol_use == "Regular") else "Joint Resurfacing"
         elif implant == "Osteochondral Allograft":
             procedure = "Arthroscopic Meniscal Repair" if bmi > 30 or comorbidities == "Osteoporosis" else "Autologous Chondrocyte Implantation"
         elif implant == "Custom Tumor Prosthesis":
-            procedure = "Wide Tumor Excision"  # Always a specific procedure for tumors
+            procedure = "Wide Tumor Excision"
         else:
-            procedure = "Wide Tumor Excision"  # Default for unknown implants
+            procedure = "Wide Tumor Excision"
 
-        # Append to dataset
         data.append({
             "Age": age,
             "Gender": gender,
@@ -143,9 +127,10 @@ def generate_synthetic_data(num_samples=1000):
     return pd.DataFrame(data)
 
 
-# Generate balanced dataset with adjustments
-synthetic_data = generate_synthetic_data(1000)
+# Generate dataset
+synthetic_data = generate_synthetic_data(10000)
 
-# Save dataset to CSV
-synthetic_data.to_csv("../SavedDataSet/OptimizedDataSet.csv", index=False)
-print("Optimized synthetic dataset generated and saved as 'OptimizedDataSet.csv'.")
+# Save dataset
+file_path = "../SavedDataset/OptimizedDataSet.csv"
+synthetic_data.to_csv(file_path, index=False)
+
